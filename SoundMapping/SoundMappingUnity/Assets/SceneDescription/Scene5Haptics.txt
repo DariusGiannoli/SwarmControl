@@ -1,0 +1,3 @@
+Here's a situation where four drones are isolated. Each drone represents a network by itself. You can change the controlled network by pressing R1 or L1.
+
+To complete a level, you must form a single unified network of drones by connecting them

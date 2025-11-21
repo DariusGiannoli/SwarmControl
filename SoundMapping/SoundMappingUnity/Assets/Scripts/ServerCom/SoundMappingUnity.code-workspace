@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"path": "../../.."
+		},
+		{
+			"path": "../../../../../WebPages/unity-plotter"
+		}
+	],
+	"settings": {
+		"dotnet.defaultSolution": "SoundMappingUnity.sln"
+	}
+}

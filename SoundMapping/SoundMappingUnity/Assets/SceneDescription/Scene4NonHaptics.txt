@@ -1,0 +1,1 @@
+You're now embodying a drone in First-Person View. The drone you are embodying moves freely without applied forces, but you'll still feel feedback from the swarm through the haptic jacket

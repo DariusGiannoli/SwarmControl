@@ -1,0 +1,7 @@
+Use the L Stick to move the drone and the R Stick to control the camera. Move the R Stick horizontally to rotate and vertically to adjust height.
+
+A grey line shows your drone's predicted path. If you're about to collide with something, this line turns red and your controller vibrates.
+
+The haptic jacket provides force feedback when you're near walls - test this by carefully approaching one. Watch out for invisible boundaries at level edges.
+
+Remember: You must collect all stars to complete the level.

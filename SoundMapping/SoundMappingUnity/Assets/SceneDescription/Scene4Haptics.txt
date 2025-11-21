@@ -1,0 +1,5 @@
+You're now embodying a drone in First-Person View. The drone you are embodying moves freely without applied forces, but you'll still feel feedback from the swarm through the haptic jacket
+
+The forces you are feeling on the haptic jacket are the forces applied to the embodied drone. You can feel the obstacle avoidance force as well as the forces exerted by each agent in the swarm.
+
+Try moving around the trapped drones and experience the forces applied to the embodied drone

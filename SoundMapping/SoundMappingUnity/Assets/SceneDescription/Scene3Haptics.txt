@@ -1,0 +1,5 @@
+This scene demonstrates the forces applied by each drone in the swarm. The large orange drones represent dummy drones—they cannot move but still exert forces. By pressing Y, you can ignore their effect. (Espetionnaly here the movement is stuck in 2D)
+
+You will soon join other drones. Once they are within reach, they will start following you, forming a swarm. You will control the swarm as a cohesive unit.
+
+The force feedback indicates the direction of the swarm's forces. Try interacting with the dummy drones to understand how they behave. Experiment by moving and then releasing the sticks to observe the swarm's reaction

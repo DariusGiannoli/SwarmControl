@@ -1,0 +1,79 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1045 &1
+EditorBuildSettings:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Scenes:
+  - enabled: 1
+    path: Assets/Scenes/Setup.unity
+    guid: 18a0d57b7e809b444969e58e0ecddd1c
+  - enabled: 1
+    path: Assets/Scenes/Scene Selector.unity
+    guid: c77175f23713e314cb6cdd510f9dae02
+  - enabled: 1
+    path: Assets/Scenes/SceneStudy/TDVObs.unity
+    guid: 4497d5166e82f5d44bbc5c4c40bba8d6
+  - enabled: 1
+    path: Assets/Scenes/SceneStudy/FPVObs.unity
+    guid: d4e5207ba5ffd4d46bb8d1ebe0983b9c
+  - enabled: 1
+    path: Assets/Scenes/SceneStudy/TDVCollectibles.unity
+    guid: 2cbebe0aeda77464b8cb0fad115b9baa
+  - enabled: 1
+    path: Assets/Scenes/SceneStudy/FPVCollectibles.unity
+    guid: 75dd737bdce000543926d90d479c47fc
+  - enabled: 1
+    path: Assets/Scenes/TrainingFinal/1 Single Drone TDV.unity
+    guid: 7fd1455c7bf5f5a49ab61027830765e0
+  - enabled: 1
+    path: Assets/Scenes/TrainingFinal/2 Single Drone FPV.unity
+    guid: ff29c634b007cfb41ad25276bdabf66b
+  - enabled: 1
+    path: Assets/Scenes/Useless/Extra/3 Swarm SensationTDV.unity
+    guid: b9e10f8fe61737c4a8d9657c53d5ad55
+  - enabled: 1
+    path: Assets/Scenes/Useless/Extra/4 Swarm Sensation FPV.unity
+    guid: a742a9321f3eac544af1b07207f21ee2
+  - enabled: 1
+    path: Assets/Scenes/TrainingFinal/5 Swicth View TDV.unity
+    guid: d1bc48418bc615b4a9890b3d24ca5353
+  - enabled: 1
+    path: Assets/Scenes/TrainingFinal/6 Swicth View FPV.unity
+    guid: b5ae467b55a8caa4f83d8fd056b33253
+  - enabled: 1
+    path: Assets/Scenes/TrainingFinal/7 Spreadness TDV.unity
+    guid: cdf73ffe26b61874c89983e0f90207e0
+  - enabled: 1
+    path: Assets/Scenes/TrainingFinal/8 Spreadness FPV.unity
+    guid: 0ba0f625fd1d790469778d976a468195
+  - enabled: 1
+    path: Assets/Scenes/TrainingFinal/9 Drone Network TDV.unity
+    guid: 64266b8580489594a8552e9548870c75
+  - enabled: 1
+    path: Assets/Scenes/TrainingFinal/10 Drone Network FPV.unity
+    guid: a82c89dfc882f1a4893e5105d7613899
+  - enabled: 1
+    path: Assets/Scenes/TrainingFinal/11 go Fast TDV.unity
+    guid: 08c1be84d152e514aaa50c98e8fc2bd4
+  - enabled: 1
+    path: Assets/Scenes/TrainingFinal/12 go Fast FPV.unity
+    guid: 1fe108dba75e21d44bd4381364f20dd5
+  - enabled: 1
+    path: Assets/Scenes/SceneStudy/TDVObs_1.unity
+    guid: 26d281e6b2b783f43b0a3cec90b1b07f
+  - enabled: 1
+    path: Assets/Scenes/SceneStudy/FPVObs_1.unity
+    guid: 147cc51fb3cda4147bd505281c942c76
+  - enabled: 1
+    path: Assets/Scenes/SceneStudy/FPVObs_2.unity
+    guid: 4c425c391548e458fa709cd452df78e4
+  - enabled: 1
+    path: Assets/Scenes/SceneStudy/TDVCollectibles_1.unity
+    guid: 5ecc77ba7e7922145bcd39f9859cf89e
+  - enabled: 1
+    path: Assets/Scenes/SceneStudy/FPVCollectibles_1.unity
+    guid: 66120afd4c0ad6c498427499b1b16fcd
+  m_configObjects:
+    Unity.XR.Oculus.Settings: {fileID: 11400000, guid: c96d974b024f6284f8deafc4f786ff62, type: 2}
+    com.unity.xr.management.loader_settings: {fileID: 11400000, guid: b69339659d95f564c927621bb339fd0b, type: 2}

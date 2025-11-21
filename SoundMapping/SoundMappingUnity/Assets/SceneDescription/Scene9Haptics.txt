@@ -1,0 +1,11 @@
+The stationary drones help you understand distance feedback through your haptic jacket. As you fly away from them, you'll feel vibrations on different parts of your arm. A vibration near your hand warns of a high risk of swarm separation, while a vibration on your shoulder indicates a lower risk. This represents the inter-agent distance. The closer the vibration is to your hand, the higher the chance of getting separated from the swarm. If the vibration occurs on your shoulder, the chance of separation is lower.
+
+Try it! Move around the dummy drones, and experiment with spreading and shrinking the swarm in the maze. Generate the vibrations and learn to identify each one of them!
+
+In this scene, you will learn to understand swarm connectivity, which helps you gauge how easily the swarm can become disconnected. If any agent gets disconnected, you will experience the worst-case scenario: a vibration in your hand. The higher the vibration moves up your arm, the lower the risk of the swarm disconnecting.
+
+Try moving the swarm closer to and farther from the wall to feel the different vibration patterns.
+
+As you move further away from the isolated drones, the vibration shifts closer to your hand, indicating a higher chance of disconnection. This makes sense because the farther you are, the closer the swarm is to becoming disconnected.
+
+Also, experiment with the swarm's spread to change the risk of disconnection. A neighbor is defined based on spread, so reducing the spread decreases the neighbor range, thereby increasing the likelihood of disconnection

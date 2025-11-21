@@ -1,0 +1,1 @@
+You can switch the drone you are controlling by pressing L1 and R1.  The currently controlled drone is highlighted in green. Listen for a “bip” sound - these indicate isolated drones outside your swarm's range.

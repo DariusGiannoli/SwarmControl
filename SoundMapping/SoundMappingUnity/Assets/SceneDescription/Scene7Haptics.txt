@@ -1,0 +1,5 @@
+Use R2 and L2 to control your swarm's formation - R2 spreads the drones apart while L2 brings them closer together. 
+
+When approaching narrow passages, the system might suggest tightening the formation, by saying “shrink”. Try it! However, just because the swarm recommends it doesn’t mean you have to do it… You are the one in control!
+
+When moving the swarm around, some drones might get lost. You can get close to them to merge them back into the swarm. Always stay alert for lost drones by listening for the 'Bip' sound.

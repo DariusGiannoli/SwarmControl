@@ -1,0 +1,54 @@
+# =============== #
+# Unity generated #
+# =============== #
+
+# OS specific files
+.DS_Store
+Thumbs.db
+
+# User-specific settings
+Library/
+Temp/
+Logs/
+Obj/
+Build/
+Builds/
+UserSettings/
+
+# Memory state and lock files
+*.stackdump
+*.pidb
+*.suo
+*.user
+*.userprefs
+*.csproj
+*.unityproj
+*.booproj
+*.svd
+
+# Unity specific
+/Assets/Plugins/*/Android/*.gradle
+/Assets/StreamingAssets/aa.meta
+/Assets/StreamingAssets/aa
+
+# Visual Studio files
+.vscode/
+.vs/
+*.csproj
+*.sln
+*.suo
+
+# Builds
+Build/
+Builds/
+*.apk
+*.aab
+*.xcodeproj
+
+# Crash reports
+CrashReport/
+
+# Auto-generated settings
+meta/*.meta
+/Logs/**/*
+/MemoryCaptures/

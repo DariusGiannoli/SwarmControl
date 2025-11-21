@@ -1,0 +1,1 @@
+In First-Person View, you can still use R2 and L2 to adjust the swarm's spacing. While keeping the drones close together gives you tighter control over the group, be aware that it increases the risk of collisions between drones. Test these spacing controls to find the right balance.

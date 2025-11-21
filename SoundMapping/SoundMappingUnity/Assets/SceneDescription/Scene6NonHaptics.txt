@@ -1,0 +1,1 @@
+To take control of a different drone, first look directly at the one you want to embody. Press R1 or L1 to select it - you'll know it's selected when it turns green. Once selected, press A on your controller to switch to that drone's first-person view.
