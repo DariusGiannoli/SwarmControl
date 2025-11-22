@@ -3,6 +3,8 @@ using UnityEngine;
 
 public class CameraMovement : MonoBehaviour
 {
+    public InputFusionManager inputManager; // Reference to the input fusion system
+
     public static int idLeader = -1;
 
 
@@ -112,7 +114,7 @@ public class CameraMovement : MonoBehaviour
         }
 
         // Rotate camera using joystick input (if rotation is enabled)
-        float rightStickHorizontal = (GetComponent<MigrationPointController>().control_rotation) ? Input.GetAxis("JoystickRightHorizontal") : 0;
+        float rightStickHorizontal = (GetComponent<MigrationPointController>().control_rotation && inputManager != null) ? inputManager.CameraRotation : 0;
         cam.transform.Rotate(-Vector3.forward, rightStickHorizontal * Time.deltaTime * rotationSpeed);
 
         // Adjust orthographic size based on swarm separation.
@@ -124,7 +126,7 @@ public class CameraMovement : MonoBehaviour
     void UpdateDroneView()
     {
         // Rotate the drone with joystick input.
-        float rightStickHorizontal = (GetComponent<MigrationPointController>().control_rotation) ? Input.GetAxis("JoystickRightHorizontal") : 0;
+        float rightStickHorizontal = (GetComponent<MigrationPointController>().control_rotation && inputManager != null) ? inputManager.CameraRotation : 0;
         if (embodiedDrone != null)
         {
             embodiedDrone.transform.Rotate(Vector3.up, rightStickHorizontal * Time.deltaTime * rotationSpeed);

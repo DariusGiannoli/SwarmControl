@@ -4,6 +4,9 @@ using UnityEngine;
 
 public class MigrationPointController : MonoBehaviour
 {
+    [Header("Input System")]
+    public InputFusionManager inputManager; // Reference to the input fusion system
+
     public static int idLeader = -1;
     public Camera mainCamera; // Assign your main camera in the Inspector
     public LayerMask groundLayer; // Layer mask for the ground
@@ -429,14 +432,14 @@ public class MigrationPointController : MonoBehaviour
 
     void SelectionUpdate()
     { 
-        if(Input.GetKeyDown("joystick button " + 3))
+        if(inputManager != null && inputManager.ToggleDummyForcesPressed)
         {
             
             swarmModel.dummyForcesApplied = !swarmModel.dummyForcesApplied;
         }       
 
         // if((Input.GetKeyDown("joystick button " + 5) || Input.GetKeyDown("joystick button " + 4)) && control_selection) //selection
-        if (allowManualSelection && (Input.GetKeyDown("joystick button " + 5) || Input.GetKeyDown("joystick button " + 4)) && control_selection) // selection
+        if (allowManualSelection && inputManager != null && (inputManager.SelectionNextPressed || inputManager.SelectionPrevPressed) && control_selection) // selection
         {
             if(selectedDrone == null && CameraMovement.embodiedDrone == null) // if nothing selected
             {
@@ -488,7 +491,7 @@ public class MigrationPointController : MonoBehaviour
                 }
                 else
                 {
-                    int increment = Input.GetKeyDown("joystick button " + 5) ? 1 : -1;
+                    int increment = inputManager != null ? inputManager.GetSelectionDirection() : 0;
                     if(increment == 0)
                     {
                         return;
@@ -579,7 +582,7 @@ public class MigrationPointController : MonoBehaviour
 
         // button 0
         // if(Input.GetKeyDown("joystick button " + 0) && control_embodiement) //embodiement
-        if (allowManualEmbodiment && Input.GetKeyDown("joystick button " + 0) && control_embodiement) // embodiment
+        if (allowManualEmbodiment && inputManager != null && inputManager.EmbodimentPressed && control_embodiement) // embodiment
         {
 
             if(CameraMovement.embodiedDrone != null)
@@ -595,7 +598,7 @@ public class MigrationPointController : MonoBehaviour
             }
         }
 
-        if(Input.GetKeyDown("joystick button " + 1) && _control_desembodiement) //desembodie
+        if(inputManager != null && inputManager.DisembodimentPressed && _control_desembodiement) //desembodie
         {
             if(CameraMovement.embodiedDrone != null)
             {
@@ -607,7 +610,7 @@ public class MigrationPointController : MonoBehaviour
 
     void SpreadnessUpdate()
     {
-        float spreadness = Input.GetAxis("LR");
+        float spreadness = inputManager != null ? inputManager.SwarmSpread : 0f;
         if(spreadness != 0 && control_spreadness)
         {
             swarmModel.desiredSeparation+= spreadness * Time.deltaTime * 1.3f;
@@ -623,10 +626,11 @@ public class MigrationPointController : MonoBehaviour
         }
 
 
-        float horizontal = Input.GetAxis("Horizontal");
-        float vertical = Input.GetAxis("Vertical");
+        Vector3 movementInput = inputManager != null ? inputManager.SwarmMovement : Vector3.zero;
+        float horizontal = movementInput.x;
+        float vertical = movementInput.z;
 
-        float heightControl = Input.GetAxis("JoystickRightVertical");
+        float heightControl = movementInput.y;
         Transform body = null;
         Vector3 right = new Vector3(0, 0, 0);
         Vector3 forward = new Vector3(0, 0, 0);
