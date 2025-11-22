@@ -20,6 +20,9 @@ public class InputFusionManager : MonoBehaviour
     [Tooltip("Meta Quest headset for camera rotation (yaw)")]
     public MetaQuestInput metaQuestInput;
 
+    [Tooltip("Meta Quest hand tracking for swarm spread control")]
+    public HandTrackingInput handTrackingInput;
+
     // Future inputs will go here:
     // public HandIMUInput leftHandIMU;
     // public HandIMUInput rightHandIMU;
@@ -80,6 +83,12 @@ public class InputFusionManager : MonoBehaviour
         {
             Debug.LogWarning("InputFusionManager: MetaQuestInput is enabled but reference is missing. Falling back to traditional input.");
             useMetaQuestForRotation = false;
+        }
+
+        if (handTrackingInput == null && useFusedHandsForSpread)
+        {
+            Debug.LogWarning("InputFusionManager: HandTrackingInput is enabled but reference is missing. Falling back to traditional input.");
+            useFusedHandsForSpread = false;
         }
     }
 
@@ -178,19 +187,22 @@ public class InputFusionManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Combines spread control from hand IMUs and/or traditional input
+    /// Combines spread control from hand tracking and/or traditional input
     /// </summary>
     void FuseSpreadInputs()
     {
         float spread = 0f;
 
-        // PHASE 1: Just pass through traditional input
-        if (traditionalInput != null)
+        // PRIMARY: Use hand tracking if enabled and available
+        if (useFusedHandsForSpread && handTrackingInput != null)
+        {
+            spread = handTrackingInput.HandSpreadControl;
+        }
+        // FALLBACK: Use traditional input (triggers/bumpers)
+        else if (traditionalInput != null)
         {
             spread = traditionalInput.SpreadInput;
         }
-
-        // Future: Add hand IMU + Quest arm fusion here when useFusedHandsForSpread is true
 
         SwarmSpread = spread;
     }
@@ -270,6 +282,7 @@ public class InputFusionManager : MonoBehaviour
         GUILayout.Label($"---");
         GUILayout.Label($"OpenZen Active: {useOpenZenForMovement}");
         GUILayout.Label($"MetaQuest Active: {useMetaQuestForRotation}");
+        GUILayout.Label($"HandTracking Active: {useFusedHandsForSpread}");
         GUILayout.Label($"Traditional Fallback: {enableTraditionalFallback}");
         GUILayout.EndArea();
     }
