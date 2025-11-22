@@ -17,8 +17,10 @@ public class InputFusionManager : MonoBehaviour
     [Tooltip("OpenZen IMU for swarm movement (forward/back/left/right)")]
     public OpenZenMoveObject openZenIMU;
 
+    [Tooltip("Meta Quest headset for camera rotation (yaw)")]
+    public MetaQuestInput metaQuestInput;
+
     // Future inputs will go here:
-    // public MetaQuestInput metaQuestInput;
     // public HandIMUInput leftHandIMU;
     // public HandIMUInput rightHandIMU;
 
@@ -72,6 +74,12 @@ public class InputFusionManager : MonoBehaviour
         {
             Debug.LogWarning("InputFusionManager: OpenZenIMU is enabled but reference is missing. Falling back to traditional input.");
             useOpenZenForMovement = false;
+        }
+
+        if (metaQuestInput == null && useMetaQuestForRotation)
+        {
+            Debug.LogWarning("InputFusionManager: MetaQuestInput is enabled but reference is missing. Falling back to traditional input.");
+            useMetaQuestForRotation = false;
         }
     }
 
@@ -194,13 +202,16 @@ public class InputFusionManager : MonoBehaviour
     {
         float rotation = 0f;
 
-        // PHASE 1: Just pass through traditional input
-        if (traditionalInput != null)
+        // PRIMARY: Use Meta Quest headset yaw if enabled and available
+        if (useMetaQuestForRotation && metaQuestInput != null)
+        {
+            rotation = metaQuestInput.HeadsetYawRate;
+        }
+        // FALLBACK: Use traditional input (right stick / controller)
+        else if (traditionalInput != null)
         {
             rotation = traditionalInput.RotationInput;
         }
-
-        // Future: Add Meta Quest headset yaw here when useMetaQuestForRotation is true
 
         CameraRotation = rotation;
     }
@@ -251,13 +262,15 @@ public class InputFusionManager : MonoBehaviour
         if (!Application.isPlaying) return;
 
         // Display current input state in top-left corner (for debugging)
-        GUILayout.BeginArea(new Rect(10, 10, 300, 200));
+        GUILayout.BeginArea(new Rect(10, 10, 300, 250));
         GUILayout.Label($"<b>Input Fusion Status</b>");
         GUILayout.Label($"Movement: {SwarmMovement}");
         GUILayout.Label($"Spread: {SwarmSpread:F2}");
         GUILayout.Label($"Rotation: {CameraRotation:F2}");
+        GUILayout.Label($"---");
         GUILayout.Label($"OpenZen Active: {useOpenZenForMovement}");
-        GUILayout.Label($"Traditional Active: {enableTraditionalFallback}");
+        GUILayout.Label($"MetaQuest Active: {useMetaQuestForRotation}");
+        GUILayout.Label($"Traditional Fallback: {enableTraditionalFallback}");
         GUILayout.EndArea();
     }
 }
