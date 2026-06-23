@@ -2603,7 +2603,7 @@ MonoBehaviour:
   controllerSpreadInput: {fileID: 1134678136}
   metaQuestCalibration: {fileID: 1134678142}
   useIMUForMovement: 1
-  useMetaQuestForRotation: 0
+  useMetaQuestForRotation: 1
   useIMUForRotation: 0
   usePoseForSpread: 0
   usePoseForHeight: 0
@@ -2611,20 +2611,30 @@ MonoBehaviour:
   useArmIMUForSpreadHeight: 0
   useMetaHandsForHeight: 0
   useMetaHandsForSpread: 0
-  useControllersForHeight: 0
-  useControllersForSpread: 0
+  useControllersForHeight: 1
+  useControllersForSpread: 1
   enableTraditionalFallback: 1
   forwardMaxSpeed: 1
   backwardMaxSpeed: 1
   lateralMaxSpeed: 1
   heightMaxSpeed: 1
-  cameraRotationMaxSpeed: 1
+  cameraRotationMaxSpeed: 0.6
   spreadMaxSpeed: 1
   swarmMaxSpeed: 5
   migrationPointController: {fileID: 1134678141}
   swarmModelRef: {fileID: 1134678140}
   minSeparationDistance: 1
-  maxSeparationDistance: 5.0038
+  maxSeparationDistance: 5
+  startRunKey: 112
+  startTimerOnStartKey: 0
+  calibrationProfileName: shaopeng0617
+  calibrationProfileToLoad: test0611
+  saveCalibrationAfterVFlow: 1
+  loadCalibrationOnStart: 1
+  loadLatestCalibrationOnStart: 1
+  saveCalibrationProfileKey: 289
+  loadCalibrationProfileKey: 277
+  showInputStatusOverlay: 0
 --- !u!114 &1134678108
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2659,6 +2669,7 @@ MonoBehaviour:
   rotationAxis: JoystickRightHorizontal
   heightAxis: Throttle
   spreadAxis: LR
+  axisDeadzone: 0.12
   spreadAbsoluteMode: 1
   spreadMin: 1
   spreadMax: 5
@@ -2701,10 +2712,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   cameraRig: {fileID: 1940585593}
   yawMaxAngle: 40
-  deadzone: 5
+  useDirectionalYawCalibration: 0
+  leftYawAngle: -30
+  rightYawAngle: 30
+  deadzone: 10
   responseCurve: 1
   sensitivity: 1
-  smoothTime: 0.15
+  smoothTime: 0
   autoAnchorWhenSettled: 1
   anchorSettleTime: 1.5
   anchorAngVelThreshold: 5
@@ -2733,6 +2747,7 @@ MonoBehaviour:
   curveExponent: 1.7
   deadzone: 0.1
   smoothing: 0.3
+  showDebugInfo: 0
 --- !u!114 &1134678125
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2751,6 +2766,7 @@ MonoBehaviour:
   curveExponent: 1.7
   heightDeadzone: 0.2
   smoothing: 0.3
+  showDebugInfo: 0
 --- !u!114 &1134678126
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2809,6 +2825,7 @@ MonoBehaviour:
   maxSwarmSeparation: 10
   calibrateKey: 99
   autoCalibrateOnStart: 1
+  showDebugInfo: 0
 --- !u!114 &1134678132
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2823,7 +2840,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   OpenZenIoType: 1
   OpenZenIdentifier: 00:04:3E:5A:2B:61
-  connectionDelay: 0
+  connectionDelay: 1
   calibrateKey: 99
   autoCalibrateOnStart: 1
 --- !u!114 &1134678133
@@ -2857,12 +2874,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   leftHand: {fileID: 710912639}
   rightHand: {fileID: 1555848675}
-  mode: 0
+  mode: 1
   minDistance: 0.1
   neutralDistance: 0.35
   maxDistance: 0.8
   minSwarmSeparation: 1
-  maxSwarmSeparation: 10
+  maxSwarmSeparation: 5
   responseCurve: 0
   curveExponent: 2
   deadzone: 0.1
@@ -2908,12 +2925,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   cameraRig: {fileID: 1940585593}
-  mode: 0
+  mode: 1
   minDistance: 0.1
   neutralDistance: 0.35
   maxDistance: 0.8
   minSwarmSeparation: 1
-  maxSwarmSeparation: 10
+  maxSwarmSeparation: 5
   responseCurve: 0
   curveExponent: 2
   deadzone: 0.1
@@ -2976,9 +2993,14 @@ MonoBehaviour:
   openZenIMU: {fileID: 1134678108}
   pitchMaxAngle: 30
   rollMaxAngle: 30
+  useDirectionalAngleCalibration: 0
+  forwardRollAngle: 30
+  backwardRollAngle: -30
+  leftPitchAngle: -30
+  rightPitchAngle: 30
   maxPitchSpeed: 4
   maxRollSpeed: 4
-  responseCurve: 2
+  responseCurve: 1
   pitchDeadzone: 5
   rollDeadzone: 5
   invertPitch: 0
@@ -3079,8 +3101,8 @@ MonoBehaviour:
   spreadSpeed: 1.3
   useGlobalHeading: 1
   headingSmooth: 5
+  selectionMode: 1
   autoSwitchFrontmost: 1
-  viewpointMode: 0
   checkInterval: 0.15
   maxViewAngleDeg: 360
   minForwardDist: 0.01
@@ -3108,6 +3130,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7ed603cff13d05a40a01140240fc8c42, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  inputFusionManager: {fileID: 0}
+  imuMovement: {fileID: 0}
+  headsetYaw: {fileID: 0}
   controllerSpread: {fileID: 0}
   handSpread: {fileID: 0}
   controllerHeight: {fileID: 0}
@@ -3115,8 +3140,31 @@ MonoBehaviour:
   startKey: 118
   advanceKey: 32
   cancelKey: 27
+  getReadyPerStep: 4
   countdownPerStep: 3
   verboseLogging: 1
+  showPromptInHeadset: 1
+  headsetPromptAnchor: {fileID: 1940585594}
+  headsetPromptRig: {fileID: 1940585593}
+  headsetPromptOffset: {x: 0, y: 0, z: 0.5}
+  headsetPromptMinimumDistance: 0.32
+  headsetPromptScale: 0.002
+  meshPromptScale: 0.02
+  meshPromptFontSize: 11.5
+  meshPromptPanelSize: {x: 190, y: 74}
+  meshPromptTextSize: {x: 172, y: 64}
+  screenSpacePromptPlaneDistance: 0.62
+  screenSpacePromptFontSize: 56
+  screenSpacePromptPanelSize: {x: 1100, y: 390}
+  screenSpacePromptPanelOffset: {x: 0, y: -80}
+  calibrationProfileName: default
+  calibrationProfileToLoad: default
+  saveProfileWhenFlowCompletes: 1
+  loadProfileOnStart: 0
+  loadLatestProfileOnStart: 1
+  storeProfilesInProjectAssets: 1
+  calibrationProfileFolder: CalibrationProfiles
+  lastProfilePath: 
 --- !u!114 &1134678143
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4691,8 +4739,8 @@ MonoBehaviour:
   spreadSpeed: 1.5
   useGlobalHeading: 1
   headingSmooth: 5
+  selectionMode: 1
   autoSwitchFrontmost: 1
-  viewpointMode: 0
   checkInterval: 0.15
   maxViewAngleDeg: 360
   minForwardDist: 0.01
@@ -4952,6 +5000,8 @@ MonoBehaviour:
   sceneLabelOverride: 
   setupSceneName: Scene Selector
   customFilePrefix: 
+  promptForFilePrefixOnStart: 1
+  pauseWhileFilePrefixPromptOpen: 1
   autosaveEverySec: 0
   enableHotkeySave: 1
   useNetworkForMainGroup: 1
