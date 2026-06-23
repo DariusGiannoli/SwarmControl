@@ -21,6 +21,16 @@ public class HeadsetYawInput : MonoBehaviour
     [Range(10f, 90f)]
     public float yawMaxAngle = 30f;
 
+    [Header("V-Key Calibrated Yaw Range (degrees from neutral)")]
+    [Tooltip("Use left/right yaw extrema captured by the guided V-key calibration flow.")]
+    public bool useDirectionalYawCalibration = false;
+
+    [Tooltip("Relative yaw captured at comfortable maximum left head turn.")]
+    public float leftYawAngle = -30f;
+
+    [Tooltip("Relative yaw captured at comfortable maximum right head turn.")]
+    public float rightYawAngle = 30f;
+
     [Header("Deadzone")]
     [Tooltip("Ignore yaw deviations smaller than this (degrees)")]
     [Range(0f, 30f)]
@@ -90,11 +100,14 @@ public class HeadsetYawInput : MonoBehaviour
     /// <summary>Calibrated neutral yaw (degrees, world-space).</summary>
     public float NeutralYaw => _neutralYaw;
 
+    public bool HasNeutralCalibration => _hasNeutralCalibration;
+
     // ============================================
     // PRIVATE STATE
     // ============================================
 
     private float _neutralYaw = 0f;
+    private bool _hasNeutralCalibration = false;
     private bool _initialized = false;
     private float _smoothedRate = 0f;
     private float _smoothVelocity = 0f;
@@ -129,19 +142,13 @@ public class HeadsetYawInput : MonoBehaviour
 
         float relativeYaw = Mathf.DeltaAngle(_neutralYaw, CurrentYaw);
 
-        float rate;
-        if (Mathf.Abs(relativeYaw) < deadzone)
-        {
-            rate = 0f;
-        }
-        else
-        {
-            float span = Mathf.Max(yawMaxAngle - deadzone, 0.001f);
-            float normalized = Mathf.Clamp01((Mathf.Abs(relativeYaw) - deadzone) / span);
-            float curved = Mathf.Pow(normalized, responseCurve);
-            rate = Mathf.Sign(relativeYaw) * curved * sensitivity;
-            rate = Mathf.Clamp(rate, -1f, 1f);
-        }
+        float normalized = useDirectionalYawCalibration
+            ? ToDirectionalRate(relativeYaw)
+            : InputCurves.ToSignedRateAfterDeadzone(relativeYaw, yawMaxAngle, deadzone);
+        float sign = Mathf.Sign(normalized);
+        float curved = Mathf.Pow(Mathf.Abs(normalized), responseCurve) * sign;
+        float rate = curved * sensitivity;
+        rate = Mathf.Clamp(rate, -1f, 1f);
 
         if (smoothTime > 0f)
         {
@@ -187,6 +194,7 @@ public class HeadsetYawInput : MonoBehaviour
     {
         if (!IsAvailable) return;
         _neutralYaw = cameraRig.centerEyeAnchor.eulerAngles.y;
+        _hasNeutralCalibration = true;
         _prevYaw = _neutralYaw;
         _settledTime = 0f;
         _smoothedRate = 0f;
@@ -194,16 +202,84 @@ public class HeadsetYawInput : MonoBehaviour
         Debug.Log($"HeadsetYawInput: calibrated. Neutral yaw = {_neutralYaw:F1}°");
     }
 
+    public void CaptureLeftMax()
+    {
+        if (!IsAvailable) return;
+        EnsureInitialized();
+        leftYawAngle = GetRelativeYaw();
+        useDirectionalYawCalibration = true;
+        Debug.Log($"HeadsetYawInput: captured LEFT yaw = {leftYawAngle:F1}°");
+    }
+
+    public void CaptureRightMax()
+    {
+        if (!IsAvailable) return;
+        EnsureInitialized();
+        rightYawAngle = GetRelativeYaw();
+        useDirectionalYawCalibration = true;
+        Debug.Log($"HeadsetYawInput: captured RIGHT yaw = {rightYawAngle:F1}°");
+    }
+
+    public void RestoreCalibration(
+        float neutralYaw,
+        bool hasNeutralCalibration,
+        bool useDirectionalCalibration,
+        float leftYaw,
+        float rightYaw)
+    {
+        _neutralYaw = neutralYaw;
+        _hasNeutralCalibration = hasNeutralCalibration;
+        useDirectionalYawCalibration = useDirectionalCalibration;
+        leftYawAngle = leftYaw;
+        rightYawAngle = rightYaw;
+        _prevYaw = _neutralYaw;
+        _settledTime = 0f;
+        _smoothedRate = 0f;
+        _smoothVelocity = 0f;
+        _initialized = true;
+    }
+
+    public float GetRelativeYaw()
+    {
+        if (!IsAvailable) return 0f;
+        return Mathf.DeltaAngle(_neutralYaw, cameraRig.centerEyeAnchor.eulerAngles.y);
+    }
+
+    float ToDirectionalRate(float relativeYaw)
+    {
+        float positive = DirectionStrength(relativeYaw, rightYawAngle);
+        float negative = DirectionStrength(relativeYaw, leftYawAngle);
+        return positive >= negative ? positive : -negative;
+    }
+
+    float DirectionStrength(float angle, float extreme)
+    {
+        if (Mathf.Abs(extreme) < 0.001f) return 0f;
+        if (angle * extreme <= 0f) return 0f;
+        return Mathf.Abs(InputCurves.ToSignedRateAfterDeadzone(angle, Mathf.Abs(extreme), deadzone));
+    }
+
+    void EnsureInitialized()
+    {
+        if (_initialized) return;
+        CurrentYaw = cameraRig.centerEyeAnchor.eulerAngles.y;
+        _neutralYaw = CurrentYaw;
+        _prevYaw = CurrentYaw;
+        _initialized = true;
+    }
+
     void OnGUI()
     {
         if (!showDebugInfo || !Application.isPlaying) return;
-        GUILayout.BeginArea(new Rect(10, 220, 360, 110));
+        GUILayout.BeginArea(new Rect(10, 220, 380, 130));
         GUILayout.Label("<b>=== HEADSET YAW (rate) ===</b>");
         GUILayout.Label($"Available: {IsAvailable}");
         if (IsAvailable)
         {
             float rel = Mathf.DeltaAngle(_neutralYaw, CurrentYaw);
             GUILayout.Label($"Yaw: {CurrentYaw:F1}° (Δ {rel:F1}° from neutral {_neutralYaw:F1}°)");
+            if (useDirectionalYawCalibration)
+                GUILayout.Label($"Bounds L/R: {leftYawAngle:F1}Â° / {rightYawAngle:F1}Â°");
             GUILayout.Label($"Rate output: {RotationControl:F2}");
             if (autoAnchorWhenSettled)
                 GUILayout.Label($"Settled: {_settledTime:F1}s / {anchorSettleTime:F1}s");

@@ -51,7 +51,7 @@ public class OpenZenMoveObject : MonoBehaviour
     IEnumerator ConnectAfterDelay()
     {
         if (connectionDelay > 0f)
-            yield return new WaitForSeconds(connectionDelay);
+            yield return new WaitForSecondsRealtime(connectionDelay);
 
         Debug.Log($"[OpenZen] Connecting to {OpenZenIdentifier} ({OpenZenIoType})...");
 

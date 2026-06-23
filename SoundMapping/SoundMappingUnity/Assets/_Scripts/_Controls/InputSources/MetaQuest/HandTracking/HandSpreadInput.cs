@@ -21,7 +21,7 @@ public class HandSpreadInput : MonoBehaviour
 
     [Header("Output Mode")]
     [Tooltip("Rate (-1..+1) or Absolute (target meters). Switchable per-trial.")]
-    public SpreadMode mode = SpreadMode.Rate;
+    public SpreadMode mode = SpreadMode.Absolute;
 
     [Header("Calibrated Bounds (meters between hands)")]
     [Tooltip("Inter-hand distance at MIN spread. Set by calibration.")]
@@ -38,7 +38,7 @@ public class HandSpreadInput : MonoBehaviour
     public float minSwarmSeparation = 1.0f;
 
     [Tooltip("Swarm separation when distance == maxDistance.")]
-    public float maxSwarmSeparation = 10.0f;
+    public float maxSwarmSeparation = 5.0f;
 
     [Header("Response (rate mode only)")]
     [Tooltip("Linear or exponential mapping from delta-from-neutral to rate.")]

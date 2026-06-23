@@ -154,6 +154,36 @@ public class InputFusionManager : MonoBehaviour
     [Range(1f, 20f)]
     public float maxSeparationDistance = 5f;
 
+    [Header("Run Start")]
+    [Tooltip("Keyboard key that releases the frozen swarm. Also handled here as a backup in case swarmModel misses the key.")]
+    public KeyCode startRunKey = KeyCode.P;
+
+    [Tooltip("When true, pressing the start key also starts the run timer/trajectory window. The start trigger still works and duplicate starts are ignored.")]
+    public bool startTimerOnStartKey = true;
+
+    [Header("Calibration Profiles")]
+    [Tooltip("Filename used when saving after the V-key calibration flow. .json is added automatically.")]
+    public string calibrationProfileName = "default";
+
+    [Tooltip("Filename used when loading. Leave empty to load Calibration Profile Name.")]
+    [CalibrationProfileDropdown]
+    public string calibrationProfileToLoad = "default";
+
+    [Tooltip("Automatically save IMU and MetaQuest calibration to the named profile when the V-key flow completes.")]
+    public bool saveCalibrationAfterVFlow = true;
+
+    [Tooltip("Load a calibration profile on Start.")]
+    public bool loadCalibrationOnStart = true;
+
+    [Tooltip("When loading on Start, load the newest calibration JSON file instead of Calibration Profile To Load.")]
+    public bool loadLatestCalibrationOnStart = true;
+
+    [Tooltip("Press this during Play to save the current calibration profile.")]
+    public KeyCode saveCalibrationProfileKey = KeyCode.F8;
+
+    [Tooltip("Press this during Play to load Calibration Profile To Load.")]
+    public KeyCode loadCalibrationProfileKey = KeyCode.F9;
+
     // ============================================
     // CALIBRATION STATE
     // ============================================
@@ -167,6 +197,8 @@ public class InputFusionManager : MonoBehaviour
     public Vector3 SwarmMovement { get; private set; }      // Final movement vector for swarm (XZ plane + Y height)
     public float SwarmSpread { get; private set; }          // Final spread control value (rate or target depending on mode)
     public float CameraRotation { get; private set; }       // Final camera rotation input
+    public string CameraRotationSource { get; private set; } = "None";
+    public string CameraRotationBlockReason { get; private set; } = "";
     
     /// <summary>
     /// Returns true if SwarmSpread is an absolute target (not a rate)
@@ -203,6 +235,19 @@ public class InputFusionManager : MonoBehaviour
     {
         ValidateReferences();
         ResolveSwarmReferences();
+        ApplyCalibrationProfileSettings();
+        if (loadCalibrationOnStart && metaQuestCalibration != null)
+        {
+            if (loadLatestCalibrationOnStart)
+            {
+                metaQuestCalibration.LoadLatestCalibrationProfile();
+                calibrationProfileToLoad = metaQuestCalibration.calibrationProfileToLoad;
+            }
+            else
+            {
+                metaQuestCalibration.LoadCalibrationProfile();
+            }
+        }
         ApplySwarmBounds();
     }
 
@@ -232,6 +277,90 @@ public class InputFusionManager : MonoBehaviour
             migrationPointController.minSpreadnessRuntime = minSeparationDistance;
             migrationPointController.maxSpreadnessRuntime = maxSeparationDistance;
         }
+
+        ApplyMetaQuestSpreadTargetRange();
+    }
+
+    void ApplyMetaQuestSpreadTargetRange()
+    {
+        if (handSpreadInput != null)
+        {
+            handSpreadInput.minSwarmSeparation = minSeparationDistance;
+            handSpreadInput.maxSwarmSeparation = maxSeparationDistance;
+        }
+
+        if (controllerSpreadInput != null)
+        {
+            controllerSpreadInput.minSwarmSeparation = minSeparationDistance;
+            controllerSpreadInput.maxSwarmSeparation = maxSeparationDistance;
+        }
+    }
+
+    void ApplyCalibrationProfileSettings()
+    {
+        if (metaQuestCalibration == null) return;
+
+        metaQuestCalibration.calibrationProfileName = calibrationProfileName;
+        metaQuestCalibration.calibrationProfileToLoad = calibrationProfileToLoad;
+        metaQuestCalibration.saveProfileWhenFlowCompletes = saveCalibrationAfterVFlow;
+        metaQuestCalibration.loadProfileOnStart = loadCalibrationOnStart;
+        metaQuestCalibration.loadLatestProfileOnStart = loadLatestCalibrationOnStart;
+    }
+
+    void HandleStartRunKey()
+    {
+        if (!Input.GetKeyDown(startRunKey)) return;
+
+        bool released = swarmModel.ReleaseSwarm("InputFusionManager start key");
+
+        if (startTimerOnStartKey)
+        {
+            SwarmTrajectoryRecorder.MarkTrialStart("Run");
+            Timer timer = swarmModelRef != null ? swarmModelRef.GetComponent<Timer>() : FindObjectOfType<Timer>();
+            if (timer != null) timer.StartTimer();
+            else Debug.LogWarning("InputFusionManager: Start key pressed, but no Timer was found.");
+        }
+
+        if (!released)
+            Debug.Log("InputFusionManager: Start key pressed; swarm was already active.");
+    }
+
+    void HandleCalibrationProfileHotkeys()
+    {
+        if (metaQuestCalibration == null) return;
+
+        if (Input.GetKeyDown(saveCalibrationProfileKey))
+            SaveCalibrationProfile();
+
+        if (Input.GetKeyDown(loadCalibrationProfileKey))
+            LoadSelectedCalibrationProfile();
+    }
+
+    [ContextMenu("Save Calibration Profile")]
+    public void SaveCalibrationProfile()
+    {
+        ResolveSwarmReferences();
+        ApplyCalibrationProfileSettings();
+        if (metaQuestCalibration != null)
+            metaQuestCalibration.SaveCalibrationProfile();
+    }
+
+    [ContextMenu("Load Selected Calibration Profile")]
+    public void LoadSelectedCalibrationProfile()
+    {
+        ResolveSwarmReferences();
+        ApplyCalibrationProfileSettings();
+        if (metaQuestCalibration != null)
+            metaQuestCalibration.LoadCalibrationProfile();
+    }
+
+    [ContextMenu("Load Latest Calibration Profile")]
+    public void LoadLatestCalibrationProfile()
+    {
+        ResolveSwarmReferences();
+        ApplyCalibrationProfileSettings();
+        if (metaQuestCalibration != null)
+            metaQuestCalibration.LoadLatestCalibrationProfile();
     }
 
     void ValidateReferences()
@@ -308,6 +437,8 @@ public class InputFusionManager : MonoBehaviour
     void Update()
     {
         ApplySwarmBounds();
+        HandleStartRunKey();
+        HandleCalibrationProfileHotkeys();
         FuseMovementInputs();
         FuseHeightInputs();
         FuseSpreadInputs();
@@ -466,44 +597,47 @@ public class InputFusionManager : MonoBehaviour
     /// <summary>
     /// Combines rotation from IMU, Meta Quest headset, and/or traditional input
     /// Priority: IMU > MetaQuest > Traditional
-    /// Note: Meta Quest yaw is disabled when IMU pitch is actively moving the swarm left/right
+    /// Rotation source is selected only by the inspector toggles below.
     /// </summary>
     void FuseRotationInputs()
     {
         float rotation = 0f;
+        CameraRotationSource = "None";
+        CameraRotationBlockReason = "";
 
         // STOP rotation during calibration (but allow swarm to hover)
         if (IsAnyCalibrationActive)
         {
             CameraRotation = 0f;
+            CameraRotationBlockReason = "Calibration active";
             return;
         }
-
-        // Check if IMU pitch is actively controlling left/right movement
-        bool pitchIsActive = useIMUForMovement &&
-                           imuMovementInput != null &&
-                           imuMovementInput.IsPitchActive;
 
         // PRIORITY 1: IMU yaw if enabled and available
         if (useIMUForRotation && imuYawInput != null && imuYawInput.IsAvailable)
         {
             rotation = imuYawInput.YawRotationRate;
+            CameraRotationSource = "IMU yaw";
         }
         // PRIORITY 2: Meta Quest headset yaw if enabled and available
-        // BUT: Disable if pitch is actively moving the swarm left/right (prevents conflicting inputs)
-        else if (useMetaQuestForRotation && headsetYawInput != null && !pitchIsActive)
+        else if (useMetaQuestForRotation && headsetYawInput != null)
         {
             rotation = headsetYawInput.RotationControl;
+            CameraRotationSource = headsetYawInput.IsAvailable ? "Meta Quest headset yaw" : "Meta Quest headset yaw unavailable";
+            if (!headsetYawInput.IsAvailable)
+                CameraRotationBlockReason = "HeadsetYawInput has no OVRCameraRig/centerEyeAnchor";
         }
         // PRIORITY 3: Webcam pose yaw — for non-VR participants who can't wear the headset
         else if (usePoseForRotation && poseYawInput != null && poseYawInput.IsAvailable)
         {
             rotation = poseYawInput.YawRate;
+            CameraRotationSource = "Pose yaw";
         }
         // FALLBACK: Use traditional input (right stick / controller)
         else if (traditionalInput != null)
         {
             rotation = traditionalInput.RotationInput;
+            CameraRotationSource = "Traditional";
         }
 
         rotation *= cameraRotationMaxSpeed;
@@ -657,6 +791,10 @@ public class InputFusionManager : MonoBehaviour
         GUILayout.Label($"Movement: {SwarmMovement}");
         GUILayout.Label($"Spread: {SwarmSpread:F2}  Height: {SwarmMovement.y:F2}");
         GUILayout.Label($"Camera Rotation OUTPUT: {CameraRotation:F2}");
+        GUILayout.Label($"Rotation Source: {CameraRotationSource}");
+        if (!string.IsNullOrEmpty(CameraRotationBlockReason))
+            GUILayout.Label($"<color=orange>Rotation Blocked: {CameraRotationBlockReason}</color>");
+        GUILayout.Label($"Rotation Enabled: {LevelConfiguration._control_rotation}");
         if (LevelConfiguration._CollectibleNumber > 0)
         {
             GUILayout.Label($"Stars Collected: {SwarmTrajectoryRecorder.CollectiblesPickedUp}/{LevelConfiguration._CollectibleNumber}");
@@ -676,11 +814,13 @@ public class InputFusionManager : MonoBehaviour
         bool pitchActive = useIMUForMovement &&
                          imuMovementInput != null &&
                          imuMovementInput.IsPitchActive;
-        //GUILayout.Label($"<color=orange>Pitch Active (Yaw Locked): {pitchActive}</color>");
+        GUILayout.Label($"IMU Pitch Active: {pitchActive}");
         
         if (useMetaQuestForRotation && headsetYawInput != null)
         {
-            //GUILayout.Label($"<color=lime>Headset Yaw Rate: {headsetYawInput.RotationControl:F2}</color>");
+            GUILayout.Label($"Headset Available: {headsetYawInput.IsAvailable}");
+            GUILayout.Label($"Headset Yaw Rate: {headsetYawInput.RotationControl:F2}");
+            GUILayout.Label($"Headset Rel Yaw: {headsetYawInput.GetRelativeYaw():+0.0;-0.0;0.0} deg");
         }
         GUILayout.EndArea();
     }

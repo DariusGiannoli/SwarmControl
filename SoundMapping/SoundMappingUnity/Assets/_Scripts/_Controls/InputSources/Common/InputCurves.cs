@@ -47,6 +47,25 @@ public static class InputCurves
     }
 
     /// <summary>
+    /// Map a signed value to [-1, +1] while excluding the deadzone from the usable range.
+    /// Example: value=10, maxMagnitude=30, deadzone=5 returns (10-5)/(30-5)=0.2.
+    /// </summary>
+    public static float ToSignedRateAfterDeadzone(float value, float maxMagnitude, float deadzoneHalfWidth)
+    {
+        float maxAbs = Mathf.Abs(maxMagnitude);
+        float dz = Mathf.Max(deadzoneHalfWidth, 0f);
+        float valueAbs = Mathf.Abs(value);
+
+        if (valueAbs <= dz) return 0f;
+
+        float usableRange = maxAbs - dz;
+        if (usableRange <= 0.0001f) return 0f;
+
+        float rate = Mathf.Clamp01((valueAbs - dz) / usableRange);
+        return rate * Mathf.Sign(value);
+    }
+
+    /// <summary>
     /// Map a measured value to a normalized 0..1 position within a calibrated [min, max] range.
     /// Clamped at both ends. Returns 0 if the calibration is degenerate.
     /// </summary>

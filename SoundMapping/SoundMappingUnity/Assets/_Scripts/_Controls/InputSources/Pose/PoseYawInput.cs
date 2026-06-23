@@ -71,10 +71,8 @@ public class PoseYawInput : MonoBehaviour
         float yawDeg = webSocketClient.HeadYawDeg;
         if (invertSign) yawDeg = -yawDeg;
 
-        // Map degrees → rate using a symmetric range with a deadzone around 0.
-        // Equivalent to InputCurves.ToRate with min=-max, neutral=0, max=+max — but
-        // ToRate's deadzone-half-width semantics already model exactly this.
-        float rawRate = InputCurves.ToRate(yawDeg, -maxYawDeg, 0f, maxYawDeg, deadzoneDeg);
+        // Map degrees to rate while excluding the deadzone from the usable range.
+        float rawRate = InputCurves.ToSignedRateAfterDeadzone(yawDeg, maxYawDeg, deadzoneDeg);
         float curved = InputCurves.ApplyCurve(rawRate, curveType, curveExponent);
 
         _smoothedRate = Mathf.Lerp(_smoothedRate, curved, 1f - smoothing);

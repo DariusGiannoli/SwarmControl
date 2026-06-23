@@ -42,6 +42,10 @@ public class TraditionalInput : MonoBehaviour
     [Tooltip("LR axis for spread control (knob/triggers)")]
     public string spreadAxis = "";
 
+    [Tooltip("Ignore small joystick/controller axis drift. Remaining range is rescaled to keep full speed at stick extremes.")]
+    [Range(0f, 0.5f)]
+    public float axisDeadzone = 0.12f;
+
     [Tooltip("If true, knob/axis value maps directly to spread distance (absolute). If false, value is a rate.")]
     public bool spreadAbsoluteMode = true;
 
@@ -85,12 +89,12 @@ public class TraditionalInput : MonoBehaviour
     void UpdateAxes()
     {
         // Movement (left stick / WASD)
-        float horizontal = Input.GetAxis(horizontalAxis);
-        float vertical = Input.GetAxis(verticalAxis);
+        float horizontal = ApplyAxisDeadzone(Input.GetAxis(horizontalAxis));
+        float vertical = ApplyAxisDeadzone(Input.GetAxis(verticalAxis));
         MovementInput = new Vector2(horizontal, vertical);
 
         // Height (right stick vertical + keyboard keys)
-        float axisHeight = Input.GetAxis(heightAxis);
+        float axisHeight = ApplyAxisDeadzone(Input.GetAxis(heightAxis));
         float keyboardHeight = 0f;
         
         if (Input.GetKey(heightUpKey))
@@ -102,7 +106,7 @@ public class TraditionalInput : MonoBehaviour
         HeightInput = Mathf.Abs(keyboardHeight) > 0.01f ? keyboardHeight : axisHeight;
 
         // Rotation (right stick horizontal)
-        RotationInput = Input.GetAxis(rotationAxis);
+        RotationInput = ApplyAxisDeadzone(Input.GetAxis(rotationAxis));
 
         // Spread (knob/triggers)
         float rawSpread = string.IsNullOrEmpty(spreadAxis) ? 0f : Input.GetAxis(spreadAxis);
@@ -114,8 +118,18 @@ public class TraditionalInput : MonoBehaviour
         }
         else
         {
-            SpreadInput = rawSpread;
+            SpreadInput = ApplyAxisDeadzone(rawSpread);
         }
+    }
+
+    float ApplyAxisDeadzone(float value)
+    {
+        float dz = Mathf.Clamp01(axisDeadzone);
+        float magnitude = Mathf.Abs(value);
+        if (magnitude <= dz) return 0f;
+
+        float usableRange = Mathf.Max(1f - dz, 0.0001f);
+        return Mathf.Sign(value) * Mathf.Clamp01((magnitude - dz) / usableRange);
     }
 
     void UpdateButtons()

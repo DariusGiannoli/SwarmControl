@@ -90,25 +90,14 @@ public class IMUYawInput : MonoBehaviour
             Debug.Log($"[IMU Yaw] Raw: {eulerAngles.y:F1}° | Normalized: {yaw:F1}° | Deadzone: {yawDeadzone}° | Passes? {Mathf.Abs(yaw) >= yawDeadzone}");
         }
 
-        // Apply deadzone
-        if (Mathf.Abs(yaw) < yawDeadzone)
-        {
-            return 0f;
-        }
-
-        // Normalize to 0-1 range for mapping curve (same as pitch/roll)
-        float yawNormalized = Mathf.Clamp01(Mathf.Abs(yaw) / yawMaxAngle);
-
-        // Apply linear rate-based mapping
-        float rotationMapped = yawNormalized * maxRotationSpeed;
-
-        // Restore sign and apply inversion
-        float rotation = Mathf.Sign(yaw) * rotationMapped;
+        // Normalize after subtracting the deadzone from both the current yaw and max range.
+        float yawRate = InputCurves.ToSignedRateAfterDeadzone(yaw, yawMaxAngle, yawDeadzone);
+        float rotation = yawRate * maxRotationSpeed;
         if (invertYaw) rotation = -rotation;
 
         if (showDebugInfo)
         {
-            Debug.Log($"[IMU Yaw] Abs/Max: {Mathf.Abs(yaw):F1}/{yawMaxAngle:F0} = {yawNormalized:F2} | Output: {rotation:F2}");
+            Debug.Log($"[IMU Yaw] After deadzone: ({Mathf.Abs(yaw):F1}-{yawDeadzone:F1})/({yawMaxAngle:F1}-{yawDeadzone:F1}) = {Mathf.Abs(yawRate):F2} | Output: {rotation:F2}");
         }
 
         return rotation;

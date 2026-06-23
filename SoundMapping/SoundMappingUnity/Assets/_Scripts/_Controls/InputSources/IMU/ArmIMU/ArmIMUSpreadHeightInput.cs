@@ -206,10 +206,7 @@ public class ArmIMUSpreadHeightInput : MonoBehaviour
     {
         float avgPitch = (leftPitch + rightPitch) * 0.5f;
 
-        if (Mathf.Abs(avgPitch) < pitchDeadzone)
-            avgPitch = 0f;
-
-        float normalized = Mathf.Clamp(avgPitch / pitchMaxAngle, -1f, 1f);
+        float normalized = InputCurves.ToSignedRateAfterDeadzone(avgPitch, pitchMaxAngle, pitchDeadzone);
         float sign = Mathf.Sign(normalized);
         float curved = Mathf.Pow(Mathf.Abs(normalized), pitchResponseCurve) * sign;
 

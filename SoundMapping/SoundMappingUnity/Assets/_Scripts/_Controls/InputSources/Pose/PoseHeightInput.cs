@@ -67,13 +67,9 @@ public class PoseHeightInput : MonoBehaviour
             // Get raw height from WebSocket (-1..+1, 0 = neutral)
             float rawHeight = webSocketClient.HandHeight;
 
-            // Apply deadzone (ignore values near neutral)
-            if (Mathf.Abs(rawHeight) < heightDeadzone)
-            {
-                rawHeight = 0f;
-            }
-
-            float curved = InputCurves.ApplyCurve(rawHeight, curveType, curveExponent);
+            // Apply deadzone and exclude it from the remaining usable range.
+            float heightRate = InputCurves.ToSignedRateAfterDeadzone(rawHeight, 1f, heightDeadzone);
+            float curved = InputCurves.ApplyCurve(heightRate, curveType, curveExponent);
 
             // Apply smoothing
             _smoothedHeight = Mathf.Lerp(_smoothedHeight, curved, 1f - smoothing);
