@@ -13,6 +13,7 @@ What gets produced (PNGs in <outdir>):
     <stem>_swarm_health.png  - subnetworks/main/disconnected/cumulative crashes over time
     <stem>_crashes.png       - crash timeline (when, which drone, embodied flag)
     <stem>_inputs.png        - fused movement/spread/rotation + per-source rotation breakdown
+    <stem>_swarm_center_velocity.png - actual swarm-center speed and XYZ velocity over time
     <stem>_gaps.png          - subnetwork centroids during gaps (color = time, size scales with drones)
     <stem>_collectibles_by_gap.png - collected stars per generated gap
     <stem>_gap_center_deviation.png - swarm-center deviation from each gap center at plane crossing
@@ -30,11 +31,21 @@ import json
 from pathlib import Path
 import re
 
+try:
+    import tkinter as tk
+    from tkinter import filedialog
+except Exception:
+    tk = None
+    filedialog = None
+
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.widgets import Slider
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection  # noqa: F401 -- registers 3d projection
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+UI_STATE_CACHE = SCRIPT_DIR / "plot_run_ui_state.json"
 
 
 # --------------------------------------------------------------------------- #
@@ -76,6 +87,95 @@ def autodetect_json(start: Path) -> Path | None:
             if files:
                 return files[0]
     return None
+
+
+def autodetect_trajectory_dir(start: Path) -> Path | None:
+    """Find Assets/Trajectories, walking up from `start`."""
+    cur = start.resolve()
+    for parent in (cur, *cur.parents):
+        candidate_root = parent / "SoundMapping" / "SoundMappingUnity" / "Assets" / "Trajectories"
+        if candidate_root.exists():
+            return candidate_root
+        if parent.name == "Trajectories":
+            return parent
+    return None
+
+
+def load_ui_state() -> dict:
+    if not UI_STATE_CACHE.exists():
+        return {}
+    try:
+        data = json.loads(UI_STATE_CACHE.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def save_ui_state(state: dict) -> None:
+    try:
+        UI_STATE_CACHE.write_text(json.dumps(state, indent=2), encoding="utf-8")
+    except Exception:
+        pass
+
+
+def cached_dir(key: str, fallback: Path | None) -> Path:
+    state = load_ui_state()
+    value = state.get(key)
+    if value:
+        path = Path(value).expanduser()
+        if path.exists() and path.is_dir():
+            return path
+    if fallback is not None and fallback.exists():
+        return fallback
+    return Path.cwd()
+
+
+def remember_dir(key: str, path: str | Path) -> None:
+    p = Path(path).expanduser()
+    directory = p if p.is_dir() else p.parent
+    if not directory.exists():
+        return
+    state = load_ui_state()
+    state[key] = str(directory.absolute())
+    save_ui_state(state)
+
+
+def ask_for_trajectory_json(initialdir: Path | None) -> Path | None:
+    """Open a JSON file picker, falling back to terminal input if Tk is unavailable."""
+    start_dir = cached_dir("trajectory_dir", initialdir)
+    if tk is not None and filedialog is not None:
+        try:
+            root = tk.Tk()
+            root.withdraw()
+            root.update_idletasks()
+            root.lift()
+            try:
+                root.attributes("-topmost", True)
+            except Exception:
+                pass
+            path = filedialog.askopenfilename(
+                parent=root,
+                title="Select trajectory JSON",
+                initialdir=str(start_dir),
+                filetypes=[("Trajectory JSON", "*.json"), ("All files", "*.*")],
+            )
+            try:
+                root.attributes("-topmost", False)
+            except Exception:
+                pass
+            root.destroy()
+            if path:
+                remember_dir("trajectory_dir", path)
+            return Path(path) if path else None
+        except Exception:
+            pass
+
+    resp = input("Enter trajectory JSON path (blank to cancel): ").strip()
+    if not resp:
+        return None
+    path = Path(resp)
+    remember_dir("trajectory_dir", path)
+    return path
 
 
 def autodetect_course_json(start: Path) -> Path | None:
@@ -795,6 +895,64 @@ def _swarm_center_series(log: dict) -> tuple[np.ndarray, np.ndarray]:
     return times, points
 
 
+def _swarm_center_velocity_series(log: dict) -> tuple[np.ndarray, np.ndarray]:
+    """Return relative midpoint times and actual swarm-center velocity samples."""
+    times, points = _swarm_center_series(log)
+    if len(times) < 2:
+        return np.array([], dtype=float), np.empty((0, 3), dtype=float)
+
+    order = np.argsort(times)
+    times = times[order]
+    points = points[order]
+
+    dt = np.diff(times)
+    valid = np.isfinite(dt) & (dt > 1e-9)
+    if not np.any(valid):
+        return np.array([], dtype=float), np.empty((0, 3), dtype=float)
+
+    velocity = np.diff(points, axis=0)[valid] / dt[valid, None]
+    t_mid = 0.5 * (times[:-1][valid] + times[1:][valid]) - float(times[0])
+    finite = np.isfinite(t_mid) & np.all(np.isfinite(velocity), axis=1)
+    return t_mid[finite], velocity[finite]
+
+
+def plot_swarm_center_velocity(log: dict, axes=None):
+    """Actual swarm-center velocity derived from position samples."""
+    if axes is None:
+        _, axes = plt.subplots(2, 1, figsize=(12, 7), sharex=True)
+
+    t, velocity = _swarm_center_velocity_series(log)
+    if len(t) == 0:
+        ax = axes[0] if hasattr(axes, "__len__") else axes
+        ax.text(0.5, 0.5, "not enough swarm-center samples for velocity",
+                ha="center", va="center", transform=ax.transAxes)
+        return axes
+
+    speed_3d = np.linalg.norm(velocity, axis=1)
+    speed_xz = np.linalg.norm(velocity[:, [0, 2]], axis=1)
+    mean_speed = float(np.mean(speed_3d)) if len(speed_3d) else float("nan")
+
+    axes[0].plot(t, speed_3d, color="black", linewidth=1.3, label="3D speed")
+    axes[0].plot(t, speed_xz, color="tab:purple", linewidth=1.0, alpha=0.85, label="XZ speed")
+    if np.isfinite(mean_speed):
+        axes[0].axhline(mean_speed, color="tab:red", linestyle="--", linewidth=1.0,
+                        label=f"mean 3D = {mean_speed:.2f} m/s")
+    axes[0].set_ylabel("speed (m/s)")
+    axes[0].set_title("Actual swarm-center velocity")
+    axes[0].grid(True, alpha=0.3)
+    axes[0].legend(loc="best")
+
+    axes[1].plot(t, velocity[:, 0], label="vx", color="tab:blue", linewidth=1.0)
+    axes[1].plot(t, velocity[:, 1], label="vy (height)", color="tab:green", linewidth=1.0)
+    axes[1].plot(t, velocity[:, 2], label="vz", color="tab:red", linewidth=1.0)
+    axes[1].axhline(0.0, color="black", linewidth=0.7, alpha=0.45)
+    axes[1].set_xlabel("time since first swarm-center sample (s)")
+    axes[1].set_ylabel("velocity (m/s)")
+    axes[1].grid(True, alpha=0.3)
+    axes[1].legend(loc="best")
+    return axes
+
+
 def _gap_rotation_matrix(gap: dict) -> np.ndarray:
     """Approximate gap local-to-world rotation matrix from exported Euler angles."""
     rx = np.deg2rad(float(gap.get("rotX", 0.0)))
@@ -1025,6 +1183,119 @@ def plot_summary(log: dict, ax=None, gap_deviations: list[dict] | None = None):
 # Driver
 # --------------------------------------------------------------------------- #
 
+
+# --- Multi-DOF control coordination (simplest version) -----------------------
+DOF_KEYS = ["fmx", "fmy", "fmz", "fs", "fr"]
+DOF_LABELS = ["x (fmx)", "height (fmy)", "z (fmz)", "spread (fs)", "view (fr)"]
+
+
+def _run_window_inputs(log: dict) -> list:
+    """Inputs restricted to the 'run' trial window when available."""
+    ins = log.get("inputs", []) or []
+    trials = [t for t in (log.get("trials") or [])
+              if str(t.get("label", "")).strip().lower() == "run"
+              and isinstance(t.get("startRealtime"), (int, float))
+              and isinstance(t.get("endRealtime"), (int, float))]
+    if trials:
+        s = float(trials[0]["startRealtime"]); e = float(trials[0]["endRealtime"])
+        ins = [f for f in ins if isinstance(f.get("t"), (int, float)) and s <= float(f["t"]) <= e]
+    return ins
+
+
+def coordination_metrics(log: dict, deadzone_frac: float = 0.15) -> dict | None:
+    """Simplest multi-DOF coordination metric: at each timestep count how many of
+    the five command DOF are actively driven (deviating from their neutral value
+    by more than a per-channel deadzone). Returns the per-timestep count plus
+    summary statistics (mean number of DOF active at once, fraction of time with
+    >= 2 DOF active)."""
+    ins = _run_window_inputs(log)
+    if len(ins) < 2:
+        return None
+    t0 = _t0(log)
+    t = np.array([float(f["t"]) - t0 for f in ins])
+    cmd = np.array([[float(f.get(k, np.nan)) for k in DOF_KEYS] for f in ins])  # (N, 5)
+    neutral = np.nanmedian(cmd, axis=0)                      # resting value per DOF
+    lo = np.nanpercentile(cmd, 5, axis=0); hi = np.nanpercentile(cmd, 95, axis=0)
+    thr = np.maximum(deadzone_frac * (hi - lo), 1e-6)        # per-DOF deadzone
+    active = np.abs(cmd - neutral) > thr                     # (N, 5) bool
+    n_active = active.sum(axis=1)
+    return {
+        "t": t, "n_active": n_active, "active": active,
+        "neutral": neutral, "thr": thr,
+        "mean_active": float(np.mean(n_active)),
+        "frac_multi": float(np.mean(n_active >= 2)),
+        "per_dof_active_frac": active.mean(axis=0),
+    }
+
+
+
+def zhai_coordination(log: dict) -> dict | None:
+    """Zhai-style coordination: efficiency of the command trajectory in the
+    5-DOF control space. Each DOF is normalised by its robust range so all
+    contribute comparably, then we compare the city-block (sequential, one axis
+    at a time) path length against the actual Euclidean path length.
+
+    R = L1 / L2  (>= 1):  1 = perfectly sequential (one DOF at a time),
+                          up to sqrt(n_dof) when all DOF move together.
+    coord_norm = (R - 1) / (sqrt(n_dof) - 1)  in [0, 1].
+    """
+    ins = _run_window_inputs(log)
+    if len(ins) < 3:
+        return None
+    cmd = np.array([[float(f.get(k, np.nan)) for k in DOF_KEYS] for f in ins])
+    lo = np.nanpercentile(cmd, 5, axis=0); hi = np.nanpercentile(cmd, 95, axis=0)
+    scale = np.maximum(hi - lo, 1e-6)
+    q = cmd / scale
+    dq = np.diff(q, axis=0)
+    l1 = np.sum(np.abs(dq), axis=1)            # sequential (city-block) step length
+    l2 = np.sqrt(np.sum(dq ** 2, axis=1))      # actual (Euclidean) step length
+    L1 = float(l1.sum()); L2 = float(l2.sum())
+    if L2 <= 0:
+        return None
+    n = cmd.shape[1]
+    R = L1 / L2
+    return {"R": R, "coord_norm": (R - 1.0) / (np.sqrt(n) - 1.0), "L1": L1, "L2": L2}
+
+
+def plot_coordination(log: dict, axes=None, deadzone_frac: float = 0.15):
+    """Plot (and print) the multi-DOF coordination metric for one run."""
+    res = coordination_metrics(log, deadzone_frac)
+    if axes is None:
+        _, axes = plt.subplots(2, 1, figsize=(12, 6), gridspec_kw={"height_ratios": [2, 1]})
+    if res is None:
+        axes[0].text(0.5, 0.5, "no inputs in run window", ha="center", va="center",
+                     transform=axes[0].transAxes)
+        return axes
+    t, n = res["t"], res["n_active"]
+    axes[0].step(t, n, where="post", color="tab:blue", lw=1.0)
+    axes[0].fill_between(t, n, step="post", alpha=0.18, color="tab:blue")
+    axes[0].axhline(res["mean_active"], color="tab:red", ls="--", lw=1.2,
+                    label=f"mean = {res['mean_active']:.2f} DOF")
+    axes[0].set_ylabel("DOF active at once")
+    axes[0].set_ylim(0, len(DOF_KEYS))
+    zc = zhai_coordination(log)
+    ztxt = ("  |  Zhai coord = %.2f" % zc["coord_norm"]) if zc else ""
+    axes[0].set_title("Control coordination  |  mean %.2f DOF active,  %.0f%% of time >= 2 DOF%s"
+                      % (res["mean_active"], 100 * res["frac_multi"], ztxt))
+    axes[0].legend(loc="upper right"); axes[0].grid(True, alpha=0.3)
+    _mark_trial_window(log, axes[0], _t0(log))
+    counts = np.bincount(n, minlength=len(DOF_KEYS) + 1)[:len(DOF_KEYS) + 1]
+    frac = counts / counts.sum() if counts.sum() else counts
+    axes[1].bar(np.arange(len(frac)), frac, color="tab:blue", width=0.6)
+    axes[1].set_xlabel("number of DOF active simultaneously")
+    axes[1].set_ylabel("fraction of time")
+    axes[1].set_xticks(np.arange(len(frac)))
+    axes[1].grid(True, axis="y", alpha=0.3)
+    print("Coordination (run window):")
+    print("  mean DOF active simultaneously = %.2f" % res["mean_active"])
+    print("  fraction of time with >= 2 DOF active = %.2f" % res["frac_multi"])
+    print("  per-DOF active fraction: " +
+          ", ".join("%s=%.2f" % (l, f) for l, f in zip(DOF_LABELS, res["per_dof_active_frac"])))
+    if zc:
+        print("  Zhai-style coordination: R(L1/L2) = %.3f,  coord_norm = %.3f" % (zc["R"], zc["coord_norm"]))
+    return axes
+
+
 def make_all(json_path: Path, outdir: Path, stride: int = 1, show: bool = False) -> None:
     log = load(json_path)
     course_path = autodetect_course_json(json_path)
@@ -1066,6 +1337,16 @@ def make_all(json_path: Path, outdir: Path, stride: int = 1, show: bool = False)
     fig.tight_layout(); fig.savefig(outdir / f"{stem}_inputs.png", dpi=130)
     figs.append(fig)
 
+    fig, axes = plt.subplots(2, 1, figsize=(12, 6), gridspec_kw={"height_ratios": [2, 1]})
+    plot_coordination(log, axes=axes)
+    fig.tight_layout(); fig.savefig(outdir / f"{stem}_coordination.png", dpi=130)
+    figs.append(fig)
+
+    fig, axes = plt.subplots(2, 1, figsize=(12, 7), sharex=True)
+    plot_swarm_center_velocity(log, axes=axes)
+    fig.tight_layout(); fig.savefig(outdir / f"{stem}_swarm_center_velocity.png", dpi=130)
+    figs.append(fig)
+
     fig, ax = plt.subplots(figsize=(10, 10))
     plot_gaps(log, ax=ax)
     fig.tight_layout(); fig.savefig(outdir / f"{stem}_gaps.png", dpi=130)
@@ -1086,7 +1367,7 @@ def make_all(json_path: Path, outdir: Path, stride: int = 1, show: bool = False)
     fig.tight_layout(); fig.savefig(outdir / f"{stem}_summary.png", dpi=130)
     figs.append(fig)
 
-    print(f"Wrote 9 plots to {outdir}/")
+    print(f"Wrote 11 plots to {outdir}/")
     if gap_deviations:
         mean_dev = float(np.mean([d["deviation"] for d in gap_deviations]))
         print(f"Mean gap-center deviation: {mean_dev:.3f} m ({len(gap_deviations)} crossings)")
@@ -1102,8 +1383,8 @@ def make_all(json_path: Path, outdir: Path, stride: int = 1, show: bool = False)
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("json", type=Path, nargs="?", default=None,
-                   help="Path to *_traj.json. If omitted, auto-picks the most recent under "
-                        "<repo>/SoundMapping/SoundMappingUnity/Assets/Trajectories/.")
+                   help="Path to *_traj.json. If omitted, asks whether to use the most recent "
+                        "file under <repo>/SoundMapping/SoundMappingUnity/Assets/Trajectories/.")
     p.add_argument("-o", "--outdir", type=Path, default=None,
                    help="Output directory (default: <json-parent>/<json-stem>_plots/).")
     p.add_argument("--stride", type=int, default=10,
@@ -1121,7 +1402,16 @@ def main() -> None:
                 "No *_traj.json found. Pass a path explicitly, or make sure you've "
                 "run a session in Unity that saved a trajectory under Assets/Trajectories/."
             )
-        print(f"Auto-picked: {json_path}")
+        print(f"Latest trajectory JSON found:\n  {json_path}")
+        resp = input("Press Enter to use this latest file, or type 'b' to browse for another file: ").strip().lower()
+        if resp == "b":
+            selected = ask_for_trajectory_json(autodetect_trajectory_dir(Path.cwd()) or json_path.parent)
+            if selected is None:
+                raise SystemExit("Canceled. No JSON file selected.")
+            json_path = selected
+            if not json_path.exists():
+                raise SystemExit(f"File not found: {json_path}")
+        print(f"Selected: {json_path}")
     elif not json_path.exists():
         raise SystemExit(f"File not found: {json_path}")
 
