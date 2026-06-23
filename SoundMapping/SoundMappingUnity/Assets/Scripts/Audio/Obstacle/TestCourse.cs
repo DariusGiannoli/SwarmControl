@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Rendering;
 #if UNITY_EDITOR
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -21,6 +22,9 @@ public class TestCourse : MonoBehaviour
     public string startingSquareName = "Starting_square";
     public string groundName = "Path";
 
+    [Header("XR Rendering Stability")]
+    [Tooltip("Disable per-eye-sensitive renderer features on start/end course-line markers.")]
+    public bool stabilizeCourseLinesForXR = true;
 
     [Header("Ground Scale")]
     public Vector3 groundScale = new Vector3(100f, 1f, 500f);
@@ -164,6 +168,12 @@ public class TestCourse : MonoBehaviour
     // -------------------------------
     // AUTO-FIND
     // -------------------------------
+    void Awake()
+    {
+        AutoFindReferences();
+        ApplyCourseLineXRRenderingFix();
+    }
+
     public void AutoFindReferences()
     {
         Transform parent = transform.parent;
@@ -215,6 +225,30 @@ public class TestCourse : MonoBehaviour
         if (timingEndLine == null) Debug.LogError("[TestCourse] Timing end line not found: " + timingEndLineName);
         if (startingSquare == null) Debug.LogWarning("[TestCourse] Starting square not found: " + startingSquareName + " (Starting_line X will fall back to the first gap's X).");
         if (groundTile == null) Debug.LogError("[TestCourse] Ground not found");
+
+        ApplyCourseLineXRRenderingFix();
+    }
+
+    public void ApplyCourseLineXRRenderingFix()
+    {
+        if (!stabilizeCourseLinesForXR) return;
+
+        ConfigureCourseLineRenderer(TrajectoryStartLine());
+        ConfigureCourseLineRenderer(TrajectoryEndLine());
+    }
+
+    private static void ConfigureCourseLineRenderer(Transform line)
+    {
+        if (line == null) return;
+
+        Renderer[] renderers = line.GetComponentsInChildren<Renderer>(includeInactive: true);
+        foreach (Renderer renderer in renderers)
+        {
+            renderer.allowOcclusionWhenDynamic = false;
+            renderer.motionVectorGenerationMode = MotionVectorGenerationMode.ForceNoMotion;
+            renderer.shadowCastingMode = ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
+        }
     }
 
     private Transform FindDeepChild(Transform root, string childName)
