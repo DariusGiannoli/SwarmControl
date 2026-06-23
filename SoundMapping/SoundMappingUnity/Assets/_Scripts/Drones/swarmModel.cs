@@ -294,11 +294,21 @@ public class swarmModel : MonoBehaviour
         // Release the swarm after calibration. One-way toggle on purpose —
         // re-freezing mid-run would leave behavior undefined for any code
         // that assumes monotonic time progression.
-        if (swarmFrozen && Input.GetKeyDown(KeyCode.P))
+        if (Input.GetKeyDown(KeyCode.P))
+            ReleaseSwarm("swarmModel P key");
+    }
+
+    public static bool ReleaseSwarm(string source = "unknown")
+    {
+        if (!swarmFrozen)
         {
-            swarmFrozen = false;
-            Debug.Log("[swarmModel] Swarm released (P pressed). Drones are now active.");
+            Debug.Log($"[swarmModel] Release requested by {source}, but swarm is already active.");
+            return false;
         }
+
+        swarmFrozen = false;
+        Debug.Log($"[swarmModel] Swarm released by {source}. Drones are now active.");
+        return true;
     }
 
     void FixedUpdate()

@@ -162,6 +162,11 @@ public class SwarmTrajectoryRecorder : MonoBehaviour
     private bool _filePrefixPromptFocused;
     private string _pendingFilePrefix = "";
     private float _timeScaleBeforeFilePrefixPrompt = 1f;
+    private int _filePrefixPromptOpenedFrame = -1;
+    private string _recorderHostSceneName = "";
+    private string _resolvedCustomFileName = null;
+    private string _resolvedCustomFileNameKey = null;
+    private string _resolvedCustomFileNameRoot = null;
 
 
     // Coroutine to ensure swarm exists after scene load
@@ -440,6 +445,7 @@ public class SwarmTrajectoryRecorder : MonoBehaviour
         if (_instance != null && _instance != this) { Destroy(gameObject); return; }
         _instance = this;
 
+        _recorderHostSceneName = gameObject.scene.name;
 
         if (dontDestroyOnLoad) DontDestroyOnLoad(gameObject);
         SceneManager.sceneLoaded   += OnSceneLoaded;
@@ -491,6 +497,12 @@ public class SwarmTrajectoryRecorder : MonoBehaviour
 
     private void DrawFilePrefixPrompt(int windowId)
     {
+        Event currentEvent = Event.current;
+        bool submittedByKey = currentEvent != null
+            && currentEvent.type == EventType.KeyDown
+            && Time.frameCount > _filePrefixPromptOpenedFrame + 1
+            && (currentEvent.keyCode == KeyCode.Return || currentEvent.keyCode == KeyCode.KeypadEnter);
+
         GUILayout.Space(8f);
         GUILayout.Label("Enter the file name to save this trajectory.");
         GUILayout.Label("Leave empty to use the default recorder name.");
@@ -503,10 +515,6 @@ public class SwarmTrajectoryRecorder : MonoBehaviour
             GUI.FocusControl("TrajectoryFilePrefixInput");
             _filePrefixPromptFocused = true;
         }
-
-        bool submittedByKey = Event.current != null
-            && Event.current.type == EventType.KeyDown
-            && (Event.current.keyCode == KeyCode.Return || Event.current.keyCode == KeyCode.KeypadEnter);
 
         GUILayout.Space(12f);
         GUILayout.BeginHorizontal();
@@ -521,7 +529,7 @@ public class SwarmTrajectoryRecorder : MonoBehaviour
         }
         GUILayout.EndHorizontal();
 
-        if (submittedByKey && Event.current != null) Event.current.Use();
+        if (submittedByKey) currentEvent.Use();
     }
 
 
@@ -529,9 +537,12 @@ public class SwarmTrajectoryRecorder : MonoBehaviour
     {
         if (!promptForFilePrefixOnStart || _filePrefixPromptOpen) return;
 
-        _pendingFilePrefix = customFilePrefix ?? string.Empty;
+        _pendingFilePrefix = !string.IsNullOrEmpty(customFilePrefix)
+            ? customFilePrefix
+            : ResolveLatestDataFilePrefix();
         _filePrefixPromptOpen = true;
         _filePrefixPromptFocused = false;
+        _filePrefixPromptOpenedFrame = Time.frameCount;
 
         if (pauseWhileFilePrefixPromptOpen)
         {
@@ -549,10 +560,14 @@ public class SwarmTrajectoryRecorder : MonoBehaviour
         {
             string trimmedPrefix = (_pendingFilePrefix ?? string.Empty).Trim();
             customFilePrefix = string.IsNullOrEmpty(trimmedPrefix) ? string.Empty : trimmedPrefix;
+            _resolvedCustomFileName = null;
+            _resolvedCustomFileNameKey = null;
+            _resolvedCustomFileNameRoot = null;
         }
 
         _filePrefixPromptOpen = false;
         _filePrefixPromptFocused = false;
+        _filePrefixPromptOpenedFrame = -1;
 
         if (pauseWhileFilePrefixPromptOpen)
         {
@@ -603,6 +618,14 @@ public class SwarmTrajectoryRecorder : MonoBehaviour
         if (!_justClearedForNewScene) ClearBuffers();
         _justClearedForNewScene = false;
         BeginSceneRecording(s);
+
+        // The recorder is hosted by the additive Setup scene and persists after
+        // that scene unloads. Re-open the prompt for each newly loaded gameplay
+        // scene, but not for the selector or the recorder's own host scene.
+        if (s.name != setupSceneName && s.name != _recorderHostSceneName)
+        {
+            OpenFilePrefixPromptIfNeeded();
+        }
     }
 
 
@@ -1805,12 +1828,7 @@ public class SwarmTrajectoryRecorder : MonoBehaviour
         };
 
 
-        string root;
-#if UNITY_EDITOR
-        root = Path.Combine(Application.dataPath, "Trajectories");
-#else
-        root = Path.Combine(Application.persistentDataPath, "Data", log.pid, outSubfolder);
-#endif
+        string root = ResolveOutputRoot(log.pid);
         Directory.CreateDirectory(root);
 
 
@@ -1824,9 +1842,7 @@ public class SwarmTrajectoryRecorder : MonoBehaviour
         string fileName;
         if (!string.IsNullOrEmpty(customFilePrefix))
         {
-            string safePrefix = MakeFileSafe(customFilePrefix);
-            // Add .json extension if not already present
-            fileName = safePrefix.EndsWith(".json") ? safePrefix : $"{safePrefix}.json";
+            fileName = ResolveCustomFileName(root);
         }
         else
         {
@@ -1852,6 +1868,70 @@ public class SwarmTrajectoryRecorder : MonoBehaviour
         s = Regex.Replace(s, @"\s+", "_");
         foreach (char c in Path.GetInvalidFileNameChars()) s = s.Replace(c.ToString(), "");
         return s;
+    }
+
+
+    private string ResolveCustomFileName(string root)
+    {
+        string safePrefix = MakeFileSafe(customFilePrefix);
+        if (_resolvedCustomFileName != null
+            && _resolvedCustomFileNameKey == safePrefix
+            && _resolvedCustomFileNameRoot == root)
+        {
+            return _resolvedCustomFileName;
+        }
+
+        string fileName = safePrefix.EndsWith(".json", StringComparison.OrdinalIgnoreCase)
+            ? safePrefix
+            : $"{safePrefix}.json";
+
+        string full = Path.Combine(root, fileName);
+        if (File.Exists(full))
+        {
+            string suffix = DateTime.Now.ToString("yyyy_MM_dd_HH_mm_ss");
+            string stem = Path.GetFileNameWithoutExtension(fileName);
+            string ext = Path.GetExtension(fileName);
+            fileName = $"{stem}_{suffix}{ext}";
+        }
+
+        _resolvedCustomFileName = fileName;
+        _resolvedCustomFileNameKey = safePrefix;
+        _resolvedCustomFileNameRoot = root;
+        return _resolvedCustomFileName;
+    }
+
+
+    private string ResolveLatestDataFilePrefix()
+    {
+        string root = ResolveOutputRoot();
+        if (!Directory.Exists(root)) return string.Empty;
+
+        DirectoryInfo directory = new DirectoryInfo(root);
+        FileInfo latestJson = null;
+        foreach (FileInfo file in directory.GetFiles("*.json"))
+        {
+            if (latestJson == null || file.LastWriteTimeUtc > latestJson.LastWriteTimeUtc)
+            {
+                latestJson = file;
+            }
+        }
+
+        if (latestJson == null) return string.Empty;
+
+        string stem = Path.GetFileNameWithoutExtension(latestJson.Name);
+        stem = Regex.Replace(stem, @"_\d{4}_\d{2}_\d{2}_\d{2}_\d{2}_\d{2}$", "");
+        stem = Regex.Replace(stem, @"_\d{8}_\d{6}_traj$", "");
+        return stem;
+    }
+
+
+    private string ResolveOutputRoot(string pid = null)
+    {
+#if UNITY_EDITOR
+        return Path.Combine(Application.dataPath, "Trajectories");
+#else
+        return Path.Combine(Application.persistentDataPath, "Data", string.IsNullOrEmpty(pid) ? ResolvePid() : pid, outSubfolder);
+#endif
     }
 
 
